@@ -5,35 +5,33 @@ import plotly.graph_objects as go
 import requests
 from streamlit_autorefresh import st_autorefresh
 
-# ======================================
+# =========================================
 # CONFIG
-# ======================================
-st.set_page_config(
-    page_title="Bitcoin Indy v1.5 Pro",
-    layout="wide"
-)
+# =========================================
+st.set_page_config(page_title="Bitcoin Indy v1.6 Quant Lab", layout="wide")
 
-# Refresh ทุก 7 วิ (เร็วแต่ Cloud safe)
-st_autorefresh(interval=7000, key="btc_refresh")
+# Refresh 6 วินาที (เร็ว + ปลอดภัย)
+st_autorefresh(interval=6000, key="quant_refresh")
 
-# ======================================
-# DARK PRO STYLE
-# ======================================
+# =========================================
+# QUANT DARK THEME
+# =========================================
 st.markdown("""
 <style>
 .stApp {
-    background-color: #0a0e13;
-    color: #e6edf3;
+    background-color: #05080f;
+    color: #e0e6ed;
 }
 h1 {
     font-weight: 800;
+    letter-spacing: 1px;
 }
 [data-testid="stMetricValue"] {
-    font-size: 64px !important;
+    font-size: 72px !important;
     font-weight: 900 !important;
 }
 [data-testid="stMetricDelta"] {
-    font-size: 20px !important;
+    font-size: 22px !important;
 }
 .block-container {
     padding-top: 1rem;
@@ -41,10 +39,10 @@ h1 {
 </style>
 """, unsafe_allow_html=True)
 
-# ======================================
+# =========================================
 # DATA FETCH
-# ======================================
-@st.cache_data(ttl=15)
+# =========================================
+@st.cache_data(ttl=10)
 def get_data():
     url = "https://data-api.binance.vision/api/v3/klines"
     params = {"symbol": "BTCUSDT", "interval": "1m", "limit": 500}
@@ -68,7 +66,7 @@ def get_data():
     except:
         return pd.DataFrame()
 
-@st.cache_data(ttl=15)
+@st.cache_data(ttl=10)
 def get_24h():
     try:
         url = "https://data-api.binance.vision/api/v3/ticker/24hr"
@@ -77,9 +75,9 @@ def get_24h():
     except:
         return {}
 
-# ======================================
+# =========================================
 # MCC ENGINE
-# ======================================
+# =========================================
 def calculate_mcc(df):
 
     temp = df.copy()
@@ -107,38 +105,48 @@ def calculate_mcc(df):
 
     return temp
 
-# ======================================
+# =========================================
 # MAIN
-# ======================================
-st.title("🚀 Bitcoin Indy v1.5 Pro Engine")
+# =========================================
+st.title("🧪 Bitcoin Indy – Quant Research Lab v1.6")
 
 df = get_data()
 if df.empty:
-    st.error("Data unavailable")
+    st.error("Market data unavailable")
     st.stop()
 
 stats = get_24h()
 mcc = calculate_mcc(df)
 
 last_price = mcc['Close'].iloc[-1]
+prev_price = mcc['Close'].iloc[-2]
 pct_24h = float(stats.get("priceChangePercent", 0))
 volume_24h = float(stats.get("volume", 0))
 
-# ======================================
-# HEADER METRICS
-# ======================================
+# Dynamic color
+price_color = "#00ff88" if last_price > prev_price else "#ff4d4f"
+
+# =========================================
+# HEADER PANEL
+# =========================================
 col1, col2, col3 = st.columns(3)
 
-col1.metric("BTC / USDT", f"{last_price:,.2f}", f"{pct_24h:+.2f}%")
-col2.metric("24H Volume", f"{volume_24h:,.0f}")
-col3.metric("ATR", f"{mcc['atr'].iloc[-1]:.2f}")
+with col1:
+    st.markdown(f"<h2 style='color:{price_color}; font-size:60px;'>${last_price:,.2f}</h2>", unsafe_allow_html=True)
+    st.markdown("BTC / USDT")
+
+with col2:
+    st.metric("24H Change", f"{pct_24h:+.2f}%")
+
+with col3:
+    st.metric("24H Volume", f"{volume_24h:,.0f}")
 
 st.divider()
 
-# ======================================
+# =========================================
 # CHART
-# ======================================
-view = mcc.tail(150)
+# =========================================
+view = mcc.tail(200)
 
 fig = go.Figure()
 
@@ -148,6 +156,8 @@ fig.add_trace(go.Candlestick(
     high=view['High'],
     low=view['Low'],
     close=view['Close'],
+    increasing_line_color="#00ff88",
+    decreasing_line_color="#ff4d4f",
     name="Price"
 ))
 
@@ -155,49 +165,30 @@ fig.add_trace(go.Scatter(
     x=view.index,
     y=view['trend'],
     name="EMA 50",
-    line=dict(color="#f1c40f", width=1)
+    line=dict(color="#ffd166", width=2)
 ))
 
 fig.add_trace(go.Scatter(
     x=view.index,
     y=view['upper'],
     name="Upper Band",
-    line=dict(color="#ff4d4f", width=2)
+    line=dict(color="#ff4d4f", width=3)
 ))
 
 fig.add_trace(go.Scatter(
     x=view.index,
     y=view['lower'],
     name="Lower Band",
-    line=dict(color="#00e676", width=2)
+    line=dict(color="#00ff88", width=3)
 ))
-
-for t in view.index[view['rev_long']]:
-    fig.add_annotation(
-        x=t,
-        y=view.loc[t,'Low'],
-        text="LONG",
-        bgcolor="#00e676",
-        font=dict(color="black"),
-        ay=40
-    )
-
-for t in view.index[view['rev_short']]:
-    fig.add_annotation(
-        x=t,
-        y=view.loc[t,'High'],
-        text="SHORT",
-        bgcolor="#ff4d4f",
-        font=dict(color="white"),
-        ay=-40
-    )
 
 fig.update_layout(
     template="plotly_dark",
-    paper_bgcolor="#0a0e13",
-    plot_bgcolor="#0a0e13",
-    height=750,
-    xaxis_rangeslider_visible=False
+    paper_bgcolor="#05080f",
+    plot_bgcolor="#05080f",
+    height=800,
+    xaxis_rangeslider_visible=False,
+    font=dict(size=14)
 )
 
 st.plotly_chart(fig, use_container_width=True)
