@@ -16,7 +16,7 @@ st.markdown("""
     .stApp { background-color: #0b0e11; }
     div[data-testid="stMetricValue"] > div { font-size: 75px !important; font-weight: 900 !important; font-family: 'Courier New', monospace; }
     </style>
-    """, unsafe_allow_config=True)
+    """, unsafe_allow_html=True)
 
 # --- FUNCTIONS ---
 @st.cache_data(ttl=60)
@@ -88,4 +88,5 @@ st.plotly_chart(fig, use_container_width=True)
 
 # Auto-refresh ทุก 10 วินาที (Streamlit Cloud แนะนำให้ไม่ถี่เกินไป)
 time.sleep(10)
+
 st.rerun()
