@@ -2,36 +2,34 @@ import streamlit as st
 import requests
 import pandas as pd
 import plotly.graph_objects as go
-from datetime import datetime
 
 st.set_page_config(
-    page_title="Quant Research Lab v1.8",
+    page_title="Quant Research Lab v1.9",
     layout="wide"
 )
 
 # =========================
-# DARK QUANT STYLE
+# AMOLED BLACK THEME
 # =========================
 st.markdown("""
 <style>
-body {
-    background-color: #0e1117;
-    color: white;
+[data-testid="stAppViewContainer"] {
+    background-color: #000000;
 }
 .big-price {
-    font-size: 54px;
+    font-size: 64px;
     font-weight: 900;
 }
 .green { color: #00ff88; }
 .red { color: #ff3b3b; }
-.small-text {
-    font-size: 20px;
-    font-weight: 600;
+.percent {
+    font-size: 28px;
+    font-weight: 700;
 }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🧠 Quant Research Lab v1.8 – Institutional 5M Engine")
+st.title("🧠 Quant Research Lab v1.9 – Spreading View Dark")
 
 # =========================
 # SAFE LIVE PRICE
@@ -43,14 +41,10 @@ def get_live_price():
         r = requests.get(url, timeout=10)
         if r.status_code != 200:
             return None, None
-
         data = r.json()
-
         if "lastPrice" not in data:
             return None, None
-
         return float(data["lastPrice"]), float(data["priceChangePercent"])
-
     except:
         return None, None
 
@@ -72,7 +66,6 @@ def get_5m_data():
             return pd.DataFrame()
 
         data = r.json()
-
         if not isinstance(data, list):
             return pd.DataFrame()
 
@@ -96,32 +89,31 @@ price, change_pct = get_live_price()
 df = get_5m_data()
 
 # =========================
-# HEADER PRICE DISPLAY
+# PRICE HEADER
 # =========================
 if price is not None:
 
-    color_class = "green" if change_pct >= 0 else "red"
+    color = "green" if change_pct >= 0 else "red"
     arrow = "▲" if change_pct >= 0 else "▼"
 
-    col1, col2 = st.columns([2,1])
+    col1, col2 = st.columns([3,1])
 
     with col1:
         st.markdown(
-            f'<div class="big-price {color_class}">${price:,.2f}</div>',
+            f'<div class="big-price {color}">${price:,.2f}</div>',
             unsafe_allow_html=True
         )
 
     with col2:
         st.markdown(
-            f'<div class="small-text {color_class}">{arrow} {change_pct:.2f}% (24H)</div>',
+            f'<div class="percent {color}">{arrow} {change_pct:.2f}% (24H)</div>',
             unsafe_allow_html=True
         )
-
 else:
     st.warning("Live price unavailable")
 
 # =========================
-# CHART
+# TRADINGVIEW STYLE CHART
 # =========================
 if not df.empty:
 
@@ -139,23 +131,24 @@ if not df.empty:
 
     fig.update_layout(
         template="plotly_dark",
-        height=650,
+        height=720,
+        paper_bgcolor="#000000",
+        plot_bgcolor="#000000",
         xaxis=dict(
             showgrid=True,
-            gridcolor='rgba(255,255,255,0.05)',
-            tickfont=dict(size=14, color="white")
+            gridcolor='rgba(255,255,255,0.07)',
+            tickfont=dict(size=18, color="white")
         ),
         yaxis=dict(
             showgrid=True,
-            gridcolor='rgba(255,255,255,0.05)',
-            tickfont=dict(size=16, color="white")
+            gridcolor='rgba(255,255,255,0.07)',
+            tickfont=dict(size=20, color="white")
         ),
         font=dict(
-            family="Arial",
-            size=16,
+            size=18,
             color="white"
         ),
-        margin=dict(l=40, r=40, t=40, b=40)
+        margin=dict(l=20, r=20, t=20, b=20)
     )
 
     st.plotly_chart(fig, use_container_width=True)
