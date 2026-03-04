@@ -5,59 +5,54 @@ import plotly.graph_objects as go
 import requests
 from streamlit_autorefresh import st_autorefresh
 
-# =========================
+# ======================================
 # CONFIG
-# =========================
+# ======================================
 st.set_page_config(
-    page_title="Bitcoin Indy v1.4",
+    page_title="Bitcoin Indy v1.5 Pro",
     layout="wide"
 )
 
-# 🔥 เร็วขึ้น (ทุก 8 วิ)
-st_autorefresh(interval=8000, key="btc_refresh")
+# Refresh ทุก 7 วิ (เร็วแต่ Cloud safe)
+st_autorefresh(interval=7000, key="btc_refresh")
 
-# =========================
-# DARK THEME STYLE
-# =========================
+# ======================================
+# DARK PRO STYLE
+# ======================================
 st.markdown("""
 <style>
 .stApp {
-    background-color: #0b0f14;
+    background-color: #0a0e13;
     color: #e6edf3;
 }
+h1 {
+    font-weight: 800;
+}
 [data-testid="stMetricValue"] {
-    font-size: 70px !important;
+    font-size: 64px !important;
     font-weight: 900 !important;
-    color: #ffffff;
 }
 [data-testid="stMetricDelta"] {
     font-size: 20px !important;
 }
+.block-container {
+    padding-top: 1rem;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# =========================
+# ======================================
 # DATA FETCH
-# =========================
-@st.cache_data(ttl=20)  # ลด cache ให้สดขึ้น
-def get_historical_data():
+# ======================================
+@st.cache_data(ttl=15)
+def get_data():
     url = "https://data-api.binance.vision/api/v3/klines"
-
-    params = {
-        "symbol": "BTCUSDT",
-        "interval": "1m",
-        "limit": 500
-    }
-
+    params = {"symbol": "BTCUSDT", "interval": "1m", "limit": 500}
     headers = {"User-Agent": "Mozilla/5.0"}
 
     try:
         res = requests.get(url, params=params, headers=headers, timeout=15)
-
-        if res.status_code != 200:
-            st.error(f"HTTP Error {res.status_code}")
-            return pd.DataFrame()
-
+        res.raise_for_status()
         data = res.json()
 
         df = pd.DataFrame(data, columns=[
@@ -67,16 +62,24 @@ def get_historical_data():
 
         df['ts'] = pd.to_datetime(df['ts'], unit='ms')
         df.set_index('ts', inplace=True)
+        df = df[['Open','High','Low','Close','Vol']].astype(float)
 
-        return df[['Open','High','Low','Close','Vol']].astype(float)
-
-    except Exception as e:
-        st.error(f"Data Fetch Error: {e}")
+        return df
+    except:
         return pd.DataFrame()
 
-# =========================
-# MCC
-# =========================
+@st.cache_data(ttl=15)
+def get_24h():
+    try:
+        url = "https://data-api.binance.vision/api/v3/ticker/24hr"
+        res = requests.get(url, params={"symbol":"BTCUSDT"}, timeout=10)
+        return res.json()
+    except:
+        return {}
+
+# ======================================
+# MCC ENGINE
+# ======================================
 def calculate_mcc(df):
 
     temp = df.copy()
@@ -104,24 +107,37 @@ def calculate_mcc(df):
 
     return temp
 
-# =========================
+# ======================================
 # MAIN
-# =========================
-st.title("🟢 Bitcoin Indy v1.4 – Dark Institutional")
+# ======================================
+st.title("🚀 Bitcoin Indy v1.5 Pro Engine")
 
-df = get_historical_data()
+df = get_data()
 if df.empty:
+    st.error("Data unavailable")
     st.stop()
 
+stats = get_24h()
 mcc = calculate_mcc(df)
 
 last_price = mcc['Close'].iloc[-1]
+pct_24h = float(stats.get("priceChangePercent", 0))
+volume_24h = float(stats.get("volume", 0))
 
-st.metric("BTC / USDT", f"{last_price:,.2f}")
+# ======================================
+# HEADER METRICS
+# ======================================
+col1, col2, col3 = st.columns(3)
 
-# =========================
+col1.metric("BTC / USDT", f"{last_price:,.2f}", f"{pct_24h:+.2f}%")
+col2.metric("24H Volume", f"{volume_24h:,.0f}")
+col3.metric("ATR", f"{mcc['atr'].iloc[-1]:.2f}")
+
+st.divider()
+
+# ======================================
 # CHART
-# =========================
+# ======================================
 view = mcc.tail(150)
 
 fig = go.Figure()
@@ -145,23 +161,43 @@ fig.add_trace(go.Scatter(
 fig.add_trace(go.Scatter(
     x=view.index,
     y=view['upper'],
-    name="Upper",
+    name="Upper Band",
     line=dict(color="#ff4d4f", width=2)
 ))
 
 fig.add_trace(go.Scatter(
     x=view.index,
     y=view['lower'],
-    name="Lower",
-    line=dict(color="#00c853", width=2)
+    name="Lower Band",
+    line=dict(color="#00e676", width=2)
 ))
+
+for t in view.index[view['rev_long']]:
+    fig.add_annotation(
+        x=t,
+        y=view.loc[t,'Low'],
+        text="LONG",
+        bgcolor="#00e676",
+        font=dict(color="black"),
+        ay=40
+    )
+
+for t in view.index[view['rev_short']]:
+    fig.add_annotation(
+        x=t,
+        y=view.loc[t,'High'],
+        text="SHORT",
+        bgcolor="#ff4d4f",
+        font=dict(color="white"),
+        ay=-40
+    )
 
 fig.update_layout(
     template="plotly_dark",
-    xaxis_rangeslider_visible=False,
-    height=700,
-    paper_bgcolor="#0b0f14",
-    plot_bgcolor="#0b0f14"
+    paper_bgcolor="#0a0e13",
+    plot_bgcolor="#0a0e13",
+    height=750,
+    xaxis_rangeslider_visible=False
 )
 
 st.plotly_chart(fig, use_container_width=True)
